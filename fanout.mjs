@@ -30,7 +30,10 @@ tasks.json is an array of:
     "profile": "<name>",        default: picked for you (needs "tool" if set)
     "cwd": "F:/project",        default: the current folder
     "perm": "readonly" | "auto" | "bypass" | "profile",   default: readonly
-    "worktree": true }          run in a new git worktree + branch of cwd
+    "worktree": true,           run in a new git worktree + branch of cwd
+    "model": "<name>",          default: the profile's own model. A plain name needs "tool";
+                                or per tool: { "claude": "opus", "codex": "gpt-5" }
+    "effort": "<level>" }       default: the profile's own effort. Same two forms as "model"
 
 Options:
   --perm <mode>     default mode for tasks that do not set one (default: readonly)
@@ -42,6 +45,24 @@ Options:
   --dry-run         show which profile each task would get, run nothing`;
 
 function fail(msg) { console.error(`fanout: ${msg}`); process.exit(2); }
+
+// "model" / "effort" of a task: a plain value, or { claude, codex }. Returns the value for one tool, or null.
+function forTool(value, tool) {
+    if (value == null) return null;
+    return (typeof value === 'object' ? value[tool] : value) ?? null;
+}
+function checkPerTool(task, field) {   // the values end up on a command line (a shell one for codex), so keep them plain
+    const v = task[field];
+    if (v == null) return;
+    const isMap = typeof v === 'object' && !Array.isArray(v);
+    if (!isMap && typeof v !== 'string') fail(`task ${task.id}: "${field}" must be a string or { "claude": ..., "codex": ... }`);
+    if (isMap) for (const k of Object.keys(v)) if (!HOME_VAR[k]) fail(`task ${task.id}: "${field}" has unknown tool '${k}' (use: claude, codex)`);
+    for (const x of isMap ? Object.values(v) : [v]) {
+        if (typeof x !== 'string' || !/^[\w.:\[\]-]+$/.test(x)) fail(`task ${task.id}: "${field}" value '${x}' is not a plain name`);
+    }
+    // a model name belongs to one tool, so a plain one is only safe when the task can run on that tool alone
+    if (field === 'model' && !isMap && !(task.tool || opt.tool)) fail(`task ${task.id}: "model" needs "tool", or give it per tool: { "claude": ..., "codex": ... }`);
+}
 
 // ---- arguments
 const argv = process.argv.slice(2);
@@ -142,6 +163,7 @@ tasks.forEach((t, i) => {
     if (t.profile && !t.tool) fail(`task ${t.id}: "profile" needs "tool"`);
     t.perm = t.perm || opt.perm;
     if (!PERM[t.perm]) fail(`task ${t.id}: unknown perm '${t.perm}' (use: ${Object.keys(PERM).join(', ')})`);
+    checkPerTool(t, 'model'); checkPerTool(t, 'effort');
     t.cwd = resolve(t.cwd || process.cwd());
     if (!existsSync(t.cwd)) fail(`task ${t.id}: cwd ${t.cwd} does not exist`);
     t.fixed = Boolean(t.profile);   // a named profile is never swapped for another on retry
@@ -150,7 +172,11 @@ tasks.forEach((t, i) => {
 });
 
 if (opt.dry) {
-    for (const t of tasks) console.log(`${t.id}  ->  ${t.slot.tool} / ${t.slot.profile}  [${t.perm}]  ${t.cwd}${t.worktree ? '  (worktree)' : ''}`);
+    for (const t of tasks) {
+        const model = forTool(t.model, t.slot.tool); const effort = forTool(t.effort, t.slot.tool);
+        console.log(`${t.id}  ->  ${t.slot.tool} / ${t.slot.profile}  [${t.perm}]  ${t.cwd}${t.worktree ? '  (worktree)' : ''}`
+            + `${model ? `  model=${model}` : ''}${effort ? `  effort=${effort}` : ''}`);
+    }
     process.exit(0);
 }
 
@@ -176,11 +202,14 @@ function runOnce(task, slot, attempt) {   // -> { ok, exit, error }
         // the folder for home comes from `list`, but claude treats "unset" and "set to ~/.claude" differently
         if (slot.profile === 'home') delete env[HOME_VAR[slot.tool]]; else env[HOME_VAR[slot.tool]] = slot.path;
         let child; let stdout = '';
+        const model = forTool(task.model, slot.tool); const effort = forTool(task.effort, slot.tool);
         if (slot.tool === 'claude') {
-            child = spawn('claude', ['-p', '--output-format', 'json', ...PERM[task.perm].claude], { cwd: task.cwd, env, windowsHide: true });
+            const extra = [...(model ? ['--model', model] : []), ...(effort ? ['--effort', effort] : [])];
+            child = spawn('claude', ['-p', '--output-format', 'json', ...PERM[task.perm].claude, ...extra], { cwd: task.cwd, env, windowsHide: true });
         } else {
-            // codex is an npm .cmd shim, so it needs a shell; every argument here is fixed text or a quoted path
-            child = spawn(['codex', ...PERM[task.perm].codex, 'exec', '--skip-git-repo-check', '-o', `"${outFile}"`, '-'].join(' '),
+            // codex is an npm .cmd shim, so it needs a shell; every argument here is fixed text, a checked plain name or a quoted path
+            const extra = [...(effort ? ['-c', `model_reasoning_effort=${effort}`] : [])];
+            child = spawn(['codex', ...PERM[task.perm].codex, ...extra, 'exec', ...(model ? ['-m', model] : []), '--skip-git-repo-check', '-o', `"${outFile}"`, '-'].join(' '),
                 { cwd: task.cwd, env, shell: true, windowsHide: true });
         }
         let timedOut = false;
@@ -223,6 +252,7 @@ async function runTask(task) {
     let slot = task.slot;
     while (slot) {
         r.attempts++; r.tool = slot.tool; r.profile = slot.profile;
+        r.model = forTool(task.model, slot.tool); r.effort = forTool(task.effort, slot.tool);
         tried.push(key(slot));
         console.error(`[start] ${task.id} on ${slot.tool}/${slot.profile}${r.attempts > 1 ? ' (retry)' : ''}`);
         const res = await runOnce(task, slot, r.attempts);

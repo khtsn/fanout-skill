@@ -2,7 +2,7 @@
 
 Run a list of tasks in parallel across your Claude Code and Codex profiles.
 
-It uses [`ccp`](../claude-profiles) and [`cxp`](../codex-profiles) to find the profiles
+It uses [`ccp`](https://github.com/khtsn/claude-profiles) and [`cxp`](https://github.com/khtsn/codex-profiles) to find the profiles
 with the most room left, starts one headless worker per task, and collects each
 worker's final answer in one folder.
 
@@ -41,6 +41,27 @@ A JSON array. Only `prompt` is required.
 | `cwd` | Folder the worker runs in | the current folder |
 | `perm` | `readonly`, `auto`, `bypass` or `profile` | `readonly` |
 | `worktree` | `true` runs the worker in a new git worktree and branch of `cwd` | off |
+| `model` | Model the worker uses | the profile's own |
+| `effort` | Reasoning effort the worker uses | the profile's own |
+
+`model` and `effort` take either one value or one value per tool:
+
+```json
+[
+  { "id": "scan", "tool": "claude", "model": "haiku", "effort": "low", "prompt": "..." },
+  { "id": "review", "prompt": "...",
+    "model": { "claude": "opus", "codex": "gpt-5-codex" },
+    "effort": { "claude": "high", "codex": "high" } }
+]
+```
+
+A model name belongs to one tool, so a single `model` value needs `tool` on the task
+(or `--tool` on the run). The per-tool form keeps the task free to run, and be
+retried, on either tool; a tool left out of it uses the profile's own setting. The
+values go to `claude --model` / `--effort` and to `codex exec -m` /
+`-c model_reasoning_effort=`, so the names and levels each tool accepts are the ones
+its own CLI accepts. `--dry-run` shows what each task would get, and `summary.json`
+records what it ran with.
 
 ## Which profile gets a task
 
@@ -80,7 +101,7 @@ Everything for a run goes in one folder, `F:/fanout/runs/<timestamp>` unless you
 <id>.out.md       the worker's final answer
 <id>.log          its raw output, for when something fails
 summary.json      one object per task: id, tool, profile, perm, cwd, status, attempts,
-                  seconds, error, out, log, branch
+                  seconds, error, out, log, branch, model, effort
 ```
 
 A table of the same summary is printed at the end. The exit code is 0 when every task

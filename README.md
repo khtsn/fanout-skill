@@ -121,3 +121,19 @@ profile or you pass `--no-retry`.
 | `--timeout <min>` | Stop a worker after this many minutes (default 60) |
 | `--no-retry` | Do not retry a failed task |
 | `--dry-run` | Show the assignment and run nothing |
+
+## Agent skill
+
+`skills/fanout` is a skill that teaches a coding agent to act as the orchestrator:
+how to split a request into tasks, pick a team size, write worker prompts, run
+`fanout.sh` and check the results. Copy it into your agent's skills folder:
+
+```bash
+cp -r F:/fanout/skills/fanout ~/.pi/agent/skills/       # pi
+cp -r F:/fanout/skills/fanout ~/.claude/skills/         # Claude Code
+```
+
+The skill expects this repository at `F:/fanout` and the profile tools at
+`F:/claude-profiles` and `F:/codex-profiles`; edit the paths in `SKILL.md` if yours
+differ. It also uses a `clarify` skill, when one is installed next to it, for
+requests that are too vague to split.

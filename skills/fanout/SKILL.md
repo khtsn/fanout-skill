@@ -104,11 +104,33 @@ Leave `tool` and `profile` out unless there is a reason to pin them. The tool sp
 unpinned tasks across the accounts with the most room left and retries a failed task
 on another account; a pinned task gets neither.
 
-To choose the model or reasoning effort for a task, set `"model"` and `"effort"`.
-Prefer the per-tool form, `{ "claude": "...", "codex": "..." }`, which leaves the
-task unpinned; a single model name needs `"tool"`. Leave both out to use each
-profile's own settings. Spend a strong model and high effort on review and hard
-reasoning, and a fast model with low effort on bulk, mechanical work.
+## Models and effort
+
+Set `"model"` and `"effort"` on every task, chosen by the kind of work it is:
+
+| Work | Claude model | Codex model | Effort |
+| --- | --- | --- | --- |
+| Planning, review, research, hard reasoning (Planner, Reviewer) | `fable` | `gpt-6-astra` | `high` |
+| Building or changing code (Engineer) | `fable` | `gpt-6-astra` | `medium` |
+| Bulk, mechanical work: the same simple check or edit over many files | `sonnet` | `gpt-6-luna` | `low` |
+
+Write both in the per-tool form, which leaves the task free to run, and be retried,
+on either tool:
+
+```json
+{ "id": "review-auth", "prompt": "...",
+  "model": { "claude": "fable", "codex": "gpt-6-astra" },
+  "effort": { "claude": "high", "codex": "high" } }
+```
+
+A single model name is only valid on a task that also sets `"tool"`. When a task
+sits between two rows, use the cheaper one unless a wrong answer would be costly.
+If the user names a model or effort, theirs wins over the table. Leave both fields
+out only when the user asks for the profiles' own settings.
+
+Check the `--dry-run` output shows the model and effort you meant for each task. If
+a worker fails because its tool rejects the model name, rerun that task without
+`"model"` and tell the user the table needs updating.
 
 ## Running
 

@@ -56,7 +56,8 @@ for the whole run.
 
 ## Roles
 
-Start each worker prompt with its role block, then the task for the step.
+Start each worker prompt with its role block, then the task for the step. Give each
+role's task the model and effort from the "Models and effort" table in `SKILL.md`.
 
 **Planner**
 You are the planner for a small delivery team. Your goal is to rank what could make

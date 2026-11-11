@@ -130,7 +130,8 @@ profile or you pass `--no-retry`.
   tasks, pick a team size, write worker prompts, run `fanout.sh` and check the results.
 - `clarify` interviews you about a vague request until it is clear enough to act on.
   `fanout` hands over to it when a request is too ambiguous to split, and it also
-  works on its own.
+  works on its own. When it has several separate areas of a project to look at
+  before asking, it uses `fanout` to explore them in parallel with read-only workers.
 
 Copy both into your agent's skills folder, side by side:
 

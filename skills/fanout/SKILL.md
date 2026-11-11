@@ -49,6 +49,22 @@ what the workers are allowed to do:
   want automation to spend. If the user has not said, show the dry-run assignment
   and let them object before running.
 
+## Exploring for the clarify skill
+
+The `clarify` skill may load this one to explore a project in parallel before it
+interviews the user. That run is a plain research fanout with these fixed rules:
+
+- Skip the ambiguity measure above and do not hand back to `clarify`: the request is
+  still vague, but each exploration question is specific, and that is all the
+  workers need.
+- Every task is read-only (`"perm": "readonly"`, no worktrees), one area per worker,
+  at most six workers.
+- Use the exploration row of the "Models and effort" table, and run with
+  `--timeout 10` so a stuck worker cannot hold up the interview.
+- Tell the user in one line that you are exploring in parallel and with how many
+  workers. The rule about accounts to leave out still applies.
+- Return to `clarify` with the answers once you have read them. Do not plan or build.
+
 ## Team size
 
 Once you have explored, choose a team size and tell the user which one and why
@@ -113,6 +129,7 @@ Set `"model"` and `"effort"` on every task, chosen by the kind of work it is:
 | Planning, review, research, hard reasoning (Planner, Reviewer) | `fable` | `gpt-6-astra` | `high` |
 | Building or changing code (Engineer) | `fable` | `gpt-6-astra` | `medium` |
 | Bulk, mechanical work: the same simple check or edit over many files | `sonnet` | `gpt-6-luna` | `low` |
+| Exploration for the `clarify` skill: finding facts about one area, quickly | `sonnet` | `gpt-6-luna` | `low` |
 
 Write both in the per-tool form, which leaves the task free to run, and be retried,
 on either tool:

@@ -24,6 +24,24 @@ If tools exist (files, code search, docs), look first. Never ask what you can
 find yourself. Ask only about decisions, preferences, and facts only the user
 knows. Without tools, state what you would check and ask the user for it.
 
+### Exploring in parallel
+Exploring should take as little of the user's time as possible. When the `fanout`
+skill is installed (`../fanout/SKILL.md`) and there are three or more areas to look
+at that do not depend on each other (separate modules, services, or questions), load
+it and explore them in parallel instead of one after another. Below that, look
+yourself: every worker starts cold, and a short look is quicker done directly.
+
+- Take a first look yourself, enough to name the areas and where they live.
+- Give each worker one area and the specific questions you need answered about it.
+  Ask for facts with file and line, each marked confirmed or suspected, plus a list
+  of anything it found that only the user can decide.
+- Follow the `fanout` skill's section "Exploring for the clarify skill" for the
+  permissions, models and limits of the run.
+- Spot-check the answers that will decide a Clarity Table row before you rely on
+  them. The workers' "only the user can decide" lists feed Phase 3.
+
+If `fanout` is not installed, or the run fails, explore directly.
+
 Then fill in the Clarity Table from what you now know and state the ambiguity score.
 
 ## Phase 3: Interview

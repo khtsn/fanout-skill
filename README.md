@@ -122,18 +122,23 @@ profile or you pass `--no-retry`.
 | `--no-retry` | Do not retry a failed task |
 | `--dry-run` | Show the assignment and run nothing |
 
-## Agent skill
+## Agent skills
 
-`skills/fanout` is a skill that teaches a coding agent to act as the orchestrator:
-how to split a request into tasks, pick a team size, write worker prompts, run
-`fanout.sh` and check the results. Copy it into your agent's skills folder:
+`skills/` holds two skills for a coding agent:
+
+- `fanout` teaches the agent to act as the orchestrator: how to split a request into
+  tasks, pick a team size, write worker prompts, run `fanout.sh` and check the results.
+- `clarify` interviews you about a vague request until it is clear enough to act on.
+  `fanout` hands over to it when a request is too ambiguous to split, and it also
+  works on its own.
+
+Copy both into your agent's skills folder, side by side:
 
 ```bash
-cp -r F:/fanout/skills/fanout ~/.pi/agent/skills/       # pi
-cp -r F:/fanout/skills/fanout ~/.claude/skills/         # Claude Code
+cp -r F:/fanout/skills/* ~/.pi/agent/skills/       # pi
+cp -r F:/fanout/skills/* ~/.claude/skills/         # Claude Code
 ```
 
-The skill expects this repository at `F:/fanout` and the profile tools at
-`F:/claude-profiles` and `F:/codex-profiles`; edit the paths in `SKILL.md` if yours
-differ. It also uses a `clarify` skill, when one is installed next to it, for
-requests that are too vague to split.
+The `fanout` skill expects this repository at `F:/fanout` and the profile tools at
+`F:/claude-profiles` and `F:/codex-profiles`; edit the paths in its `SKILL.md` if
+yours differ.

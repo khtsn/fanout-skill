@@ -10,6 +10,7 @@ import { profileCommand, codexCommand, killTree } from './platform.mjs';
 const here = import.meta.dirname;
 const profiles = Object.fromEntries(['claude', 'codex'].map((tool) => [tool, profileCommand(tool, here)]));
 const HOME_VAR = { claude: 'CLAUDE_CONFIG_DIR', codex: 'CODEX_HOME' };
+const DEFAULT_EFFORT = 'medium';   // a task that sets no effort for its tool gets this, not the profile's own
 // What each permission mode means per tool. "profile" passes nothing: the profile's saved mode applies.
 const PERM = {
     readonly: { claude: ['--permission-mode', 'plan'], codex: ['-c', 'approval_policy=on-request', '-c', 'sandbox_mode=read-only'] },
@@ -31,7 +32,7 @@ tasks.json is an array of:
     "worktree": true,           run in a new git worktree + branch of cwd
     "model": "<name>",          default: the profile's own model. A plain name needs "tool";
                                 or per tool: { "claude": "opus", "codex": "gpt-5" }
-    "effort": "<level>" }       default: the profile's own effort. Same two forms as "model"
+    "effort": "<level>" }       default: medium. Same two forms as "model"
 
 Options:
   --perm <mode>     default mode for tasks that do not set one (default: readonly)
@@ -49,6 +50,7 @@ function forTool(value, tool) {
     if (value == null) return null;
     return (typeof value === 'object' ? value[tool] : value) ?? null;
 }
+function effortFor(task, tool) { return forTool(task.effort, tool) ?? DEFAULT_EFFORT; }
 function checkPerTool(task, field) {   // the values end up on a command line (a shell one for codex), so keep them plain
     const v = task[field];
     if (v == null) return;
@@ -172,7 +174,7 @@ tasks.forEach((t, i) => {
 
 if (opt.dry) {
     for (const t of tasks) {
-        const model = forTool(t.model, t.slot.tool); const effort = forTool(t.effort, t.slot.tool);
+        const model = forTool(t.model, t.slot.tool); const effort = effortFor(t, t.slot.tool);
         console.log(`${t.id}  ->  ${t.slot.tool} / ${t.slot.profile}  [${t.perm}]  ${t.cwd}${t.worktree ? '  (worktree)' : ''}`
             + `${model ? `  model=${model}` : ''}${effort ? `  effort=${effort}` : ''}`);
     }
@@ -199,7 +201,7 @@ function runOnce(task, slot, attempt) {   // -> { ok, exit, error }
         // the folder for home comes from `list`, but claude treats "unset" and "set to ~/.claude" differently
         if (slot.profile === 'home') delete env[HOME_VAR[slot.tool]]; else env[HOME_VAR[slot.tool]] = slot.path;
         let child; let stdout = '';
-        const model = forTool(task.model, slot.tool); const effort = forTool(task.effort, slot.tool);
+        const model = forTool(task.model, slot.tool); const effort = effortFor(task, slot.tool);
         if (slot.tool === 'claude') {
             const extra = [...(model ? ['--model', model] : []), ...(effort ? ['--effort', effort] : [])];
             child = spawn('claude', ['-p', '--output-format', 'json', ...PERM[task.perm].claude, ...extra], { cwd: task.cwd, env, windowsHide: true, detached: process.platform !== 'win32' });
@@ -249,7 +251,7 @@ async function runTask(task) {
     let slot = task.slot;
     while (slot) {
         r.attempts++; r.tool = slot.tool; r.profile = slot.profile;
-        r.model = forTool(task.model, slot.tool); r.effort = forTool(task.effort, slot.tool);
+        r.model = forTool(task.model, slot.tool); r.effort = effortFor(task, slot.tool);
         tried.push(key(slot));
         console.error(`[start] ${task.id} on ${slot.tool}/${slot.profile}${r.attempts > 1 ? ' (retry)' : ''}`);
         const res = await runOnce(task, slot, r.attempts);

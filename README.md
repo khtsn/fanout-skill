@@ -58,7 +58,7 @@ A JSON array. Only `prompt` is required.
 | `perm` | `readonly`, `auto`, `bypass` or `profile` | `readonly` |
 | `worktree` | `true` runs the worker in a new git worktree and branch of `cwd` | off |
 | `model` | Model the worker uses | the profile's own |
-| `effort` | Reasoning effort the worker uses | the profile's own |
+| `effort` | Reasoning effort the worker uses | `medium` |
 
 `model` and `effort` take either one value or one value per tool:
 
@@ -73,7 +73,7 @@ A JSON array. Only `prompt` is required.
 
 A model name belongs to one tool, so a single `model` value needs `tool` on the task
 (or `--tool` on the run). The per-tool form keeps the task free to run, and be
-retried, on either tool; a tool left out of it uses the profile's own setting. The
+retried, on either tool; a tool left out of it uses the profile's own model and `medium` effort. The
 values go to `claude --model` / `--effort` and to `codex exec -m` /
 `-c model_reasoning_effort=`, so the names and levels each tool accepts are the ones
 its own CLI accepts. `--dry-run` shows what each task would get, and `summary.json`

@@ -141,10 +141,14 @@ Set `"model"` and `"effort"` on every task, chosen by the kind of work it is:
 
 | Work | Claude model | Codex model | Effort |
 | --- | --- | --- | --- |
-| Planning, review, research, hard reasoning (Planner, Reviewer) | `fable` | `gpt-6-astra` | `high` |
+| Architecture and structure: designing a system, module boundaries, data model, a large refactor's shape | `fable` | `gpt-6-astra` | `high` |
+| Planning, review, research, reasoning (Planner, Reviewer) | `fable` | `gpt-6-astra` | `medium` |
 | Building or changing code (Engineer) | `fable` | `gpt-6-astra` | `medium` |
-| Bulk, mechanical work: the same simple check or edit over many files | `sonnet` | `gpt-6-luna` | `low` |
-| Exploration for the `clarify` skill: finding facts about one area, quickly | `sonnet` | `gpt-6-luna` | `low` |
+| Bulk, mechanical work: the same simple check or edit over many files | `sonnet` | `gpt-6-luna` | `medium` |
+| Exploration for the `clarify` skill: finding facts about one area, quickly | `sonnet` | `gpt-6-luna` | `medium` |
+
+Effort is `medium` unless the task is about architecture or structure; only then use
+`high`. fanout itself runs a task without `"effort"` at `medium`.
 
 Write both in the per-tool form, which leaves the task free to run, and be retried,
 on either tool:
@@ -152,11 +156,11 @@ on either tool:
 ```json
 { "id": "review-auth", "prompt": "...",
   "model": { "claude": "fable", "codex": "gpt-6-astra" },
-  "effort": { "claude": "high", "codex": "high" } }
+  "effort": { "claude": "medium", "codex": "medium" } }
 ```
 
 A single model name is only valid on a task that also sets `"tool"`. When a task
-sits between two rows, use the cheaper one unless a wrong answer would be costly.
+sits between two rows, use the cheaper one.
 If the user names a model or effort, theirs wins over the table. Leave both fields
 out only when the user asks for the profiles' own settings.
 

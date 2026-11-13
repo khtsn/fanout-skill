@@ -83,6 +83,8 @@ test('dry run discovers profiles without starting workers or writing results', p
     const f = fixture(t);
     const { stdout } = await f.run([{ prompt: 'hello', model: { claude: 'test-model' }, effort: 'low' }], ['--dry-run']);
     assert.match(stdout, /claude \/ mock-a.*model=test-model.*effort=low/);
+    const { stdout: plain } = await f.run([{ prompt: 'hello', tool: 'codex' }], ['--dry-run']);
+    assert.match(plain, /effort=medium/, 'a task without effort runs at medium');
     assert.equal(existsSync(f.out), false);
 });
 

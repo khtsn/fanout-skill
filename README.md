@@ -157,6 +157,14 @@ cp -R ~/projects/fanout-skill/skills/* "${CODEX_HOME:-$HOME/.codex}/skills/"  # 
 # Other agents: copy both directories into ~/.claude/skills/ or ~/.pi/agent/skills/.
 ```
 
+Each profile has its own skills folder, so a skill installed in one profile is not
+seen from another. `ccp add` and `cxp add` start a new profile with the skills in
+`~/.claude/skills` and `~/.codex/skills` (links on macOS / Linux, copies on Windows),
+so install both skills there first and every profile you add afterwards has them.
+Profiles that already exist are not touched: copy or link both directories into
+`claude-profiles/profiles/<name>/skills/` and `codex-profiles/profiles/<name>/skills/`
+yourself.
+
 The skill uses `FANOUT_DIR` when set, otherwise `~/projects/fanout-skill`. Set
 `FANOUT_DIR` to the checkout location if yours differs (for example `F:/fanout` in
 Git Bash). The profile tools are located relative to the checkout, as above.

@@ -5,12 +5,10 @@
 import { spawn, execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, createWriteStream } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
+import { profileCommand, codexCommand, killTree } from './platform.mjs';
 
 const here = import.meta.dirname;
-const PS1 = {
-    claude: process.env.CCP_PS1 || resolve(here, '..', 'claude-profiles', 'ccp.ps1'),
-    codex: process.env.CXP_PS1 || resolve(here, '..', 'codex-profiles', 'cxp.ps1'),
-};
+const profiles = Object.fromEntries(['claude', 'codex'].map((tool) => [tool, profileCommand(tool, here)]));
 const HOME_VAR = { claude: 'CLAUDE_CONFIG_DIR', codex: 'CODEX_HOME' };
 // What each permission mode means per tool. "profile" passes nothing: the profile's saved mode applies.
 const PERM = {
@@ -28,7 +26,7 @@ tasks.json is an array of:
     "id": "auth-review",        default t1, t2, ...
     "tool": "claude" | "codex", default: whichever has the most room left
     "profile": "<name>",        default: picked for you (needs "tool" if set)
-    "cwd": "F:/project",        default: the current folder
+    "cwd": "/path/to/project",  default: the current folder
     "perm": "readonly" | "auto" | "bypass" | "profile",   default: readonly
     "worktree": true,           run in a new git worktree + branch of cwd
     "model": "<name>",          default: the profile's own model. A plain name needs "tool";
@@ -92,9 +90,10 @@ if (!(opt.jobs >= 1)) fail('-j needs a number of 1 or more');
 if (!(opt.timeout > 0)) fail('--timeout needs a number of minutes');
 
 // ---- profiles
-function profileTool(tool, args) {   // run ccp.ps1 / cxp.ps1, return parsed JSON (null when it fails, e.g. nothing to pick)
+function profileTool(tool, args) {   // run the platform's profile tool and parse its JSON
     return new Promise((done) => {
-        execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', PS1[tool], ...args],
+        const profile = profiles[tool];
+        execFile(profile.command, [...profile.args, ...args],
             { maxBuffer: 16 * 1024 * 1024, windowsHide: true },
             (err, stdout, stderr) => {
                 if (err) { done({ error: (stderr || err.message).trim() }); return; }
@@ -108,7 +107,7 @@ const listed = {};   // tool -> [{ name, number, path }]
 const ranked = [];   // slots `pick` returned, best first across both tools
 async function loadProfiles(needPick) {
     await Promise.all(tools.map(async (tool) => {
-        if (!existsSync(PS1[tool])) fail(`${PS1[tool]} not found (set ${tool === 'claude' ? 'CCP_PS1' : 'CXP_PS1'})`);
+        if (!existsSync(profiles[tool].script)) fail(`${profiles[tool].script} not found (set ${profiles[tool].override})`);
         const list = await profileTool(tool, ['list', '--json']);
         if (list.error) fail(`${tool}: ${list.error}`);
         listed[tool] = list.data;
@@ -191,8 +190,6 @@ function git(cwd, args) {
         (err, stdout, stderr) => done({ ok: !err, text: (stdout + stderr).trim() })));
 }
 
-function killTree(pid) { spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); }
-
 function runOnce(task, slot, attempt) {   // -> { ok, exit, error }
     return new Promise((done) => {
         const tag = attempt > 1 ? `${task.id}.try${attempt}` : task.id;
@@ -205,12 +202,12 @@ function runOnce(task, slot, attempt) {   // -> { ok, exit, error }
         const model = forTool(task.model, slot.tool); const effort = forTool(task.effort, slot.tool);
         if (slot.tool === 'claude') {
             const extra = [...(model ? ['--model', model] : []), ...(effort ? ['--effort', effort] : [])];
-            child = spawn('claude', ['-p', '--output-format', 'json', ...PERM[task.perm].claude, ...extra], { cwd: task.cwd, env, windowsHide: true });
+            child = spawn('claude', ['-p', '--output-format', 'json', ...PERM[task.perm].claude, ...extra], { cwd: task.cwd, env, windowsHide: true, detached: process.platform !== 'win32' });
         } else {
-            // codex is an npm .cmd shim, so it needs a shell; every argument here is fixed text, a checked plain name or a quoted path
             const extra = [...(effort ? ['-c', `model_reasoning_effort=${effort}`] : [])];
-            child = spawn(['codex', ...PERM[task.perm].codex, ...extra, 'exec', ...(model ? ['-m', model] : []), '--skip-git-repo-check', '-o', `"${outFile}"`, '-'].join(' '),
-                { cwd: task.cwd, env, shell: true, windowsHide: true });
+            const command = codexCommand([...PERM[task.perm].codex, ...extra, 'exec', ...(model ? ['-m', model] : []), '--skip-git-repo-check', '-o', outFile, '-']);
+            child = spawn(command.command, command.args,
+                { cwd: task.cwd, env, shell: command.shell, windowsHide: true, detached: process.platform !== 'win32' });
         }
         let timedOut = false;
         const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, opt.timeout * 60000);

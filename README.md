@@ -6,15 +6,31 @@ It uses [`ccp`](https://github.com/khtsn/claude-profiles) and [`cxp`](https://gi
 with the most room left, starts one headless worker per task, and collects each
 worker's final answer in one folder.
 
-Needs Node.js, `claude` and `codex` on your PATH, and the two profile tools in the
-sibling folders (or set `CCP_PS1` / `CXP_PS1` to their `.ps1` files).
+Supports macOS, Linux and Windows. Needs Node.js 22+, `claude` and `codex` on your
+PATH, and the two profile tools in sibling folders:
+
+```text
+projects/
+  fanout-skill/
+  claude-profiles/    # ccp.bash on macOS/Linux; ccp.ps1 on Windows
+  codex-profiles/     # cxp.bash on macOS/Linux; cxp.ps1 on Windows
+```
+
+On macOS/Linux, fanout calls the native Bash implementations; PowerShell is not
+needed. Install the profile tools' dependencies (including `jq`) as described in
+their READMEs. For a different layout, set `CCP_BASH` / `CXP_BASH` to their `.bash`
+files. Windows uses `powershell.exe` and `CCP_PS1` / `CXP_PS1` overrides.
+
+```bash
+git clone https://github.com/khtsn/fanout-skill.git ~/projects/fanout-skill
+```
 
 ## Use
 
 ```bash
-F:/fanout/fanout.sh tasks.json              # run the tasks in the file
-F:/fanout/fanout.sh tasks.json --dry-run    # show which profile each task would get
-F:/fanout/fanout.sh --each "Review src/auth for bugs"   # same prompt to every available profile
+~/projects/fanout-skill/fanout.sh tasks.json              # run the tasks in the file
+~/projects/fanout-skill/fanout.sh tasks.json --dry-run    # show which profile each task would get
+~/projects/fanout-skill/fanout.sh --each "Review src/auth for bugs"   # same prompt to every available profile
 ```
 
 From PowerShell: `node F:\fanout\fanout.mjs tasks.json`.
@@ -28,7 +44,7 @@ A JSON array. Only `prompt` is required.
   { "id": "auth", "prompt": "Review src/auth for bugs. List findings with file and line." },
   { "id": "orders", "tool": "codex", "prompt": "Review src/orders for bugs." },
   { "id": "fix-typo", "tool": "claude", "profile": "work", "perm": "auto", "worktree": true,
-    "cwd": "F:/project", "prompt": "Fix the typo in README.md and commit." }
+    "cwd": "/path/to/project", "prompt": "Fix the typo in README.md and commit." }
 ]
 ```
 
@@ -93,7 +109,7 @@ review and merge afterwards. Remove one with `git worktree remove <path>`.
 
 ## Results
 
-Everything for a run goes in one folder, `F:/fanout/runs/<timestamp>` unless you pass
+Everything for a run goes in one folder, `<fanout folder>/runs/<timestamp>` unless you pass
 `--out <dir>`:
 
 ```
@@ -136,10 +152,22 @@ profile or you pass `--no-retry`.
 Copy both into your agent's skills folder, side by side:
 
 ```bash
-cp -r F:/fanout/skills/* ~/.pi/agent/skills/       # pi
-cp -r F:/fanout/skills/* ~/.claude/skills/         # Claude Code
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+cp -R ~/projects/fanout-skill/skills/* "${CODEX_HOME:-$HOME/.codex}/skills/"  # Codex
+# Other agents: copy both directories into ~/.claude/skills/ or ~/.pi/agent/skills/.
 ```
 
-The `fanout` skill expects this repository at `F:/fanout` and the profile tools at
-`F:/claude-profiles` and `F:/codex-profiles`; edit the paths in its `SKILL.md` if
-yours differ.
+The skill uses `FANOUT_DIR` when set, otherwise `~/projects/fanout-skill`. Set
+`FANOUT_DIR` to the checkout location if yours differs (for example `F:/fanout` in
+Git Bash). The profile tools are located relative to the checkout, as above.
+
+## Tests
+
+```bash
+node --test
+```
+
+Tests use fake profile tools and workers; they do not spend account quota. POSIX
+integration tests cover worker startup, argument handling, retry and timeout cleanup.
+Windows command construction is checked on every platform; Windows process execution
+still needs a Windows host.

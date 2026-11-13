@@ -1,12 +1,12 @@
 ---
 name: fanout
-description: Split a piece of work into independent tasks and run them in parallel on the user's Claude Code and Codex accounts with the fanout tool at F:/fanout. Use when the user says "fanout", asks to delegate or spread work across their profiles or accounts, or wants several Claude/Codex workers on one job at once.
+description: Split a piece of work into independent tasks and run them in parallel on the user's Claude Code and Codex accounts with the fanout tool. Use when the user says "fanout", asks to delegate or spread work across their profiles or accounts, or wants several Claude/Codex workers on one job at once.
 ---
 
 # fanout
 
 The user has several Claude Code and Codex accounts on this machine, each a separate
-profile with its own subscription limits. `F:/fanout/fanout.sh` runs a list of tasks
+profile with its own subscription limits. `"$FANOUT_DIR/fanout.sh"` runs a list of tasks
 in parallel across them: it picks the profiles with the most room left, starts one
 headless worker per task, and saves each worker's final answer to a file.
 
@@ -15,8 +15,23 @@ you write for them and the folder they run in. Your job is to understand the req
 well enough to split it, write prompts the workers can act on alone, and turn their
 answers into one result for the user.
 
-`F:/fanout/README.md` is the full reference for the tasks file, options and result
+`$FANOUT_DIR/README.md` is the full reference for the tasks file, options and result
 files. Read it before your first run in a session.
+
+## Locate the checkout
+
+In shell examples below, initialize the checkout path once:
+
+```bash
+FANOUT_DIR="${FANOUT_DIR:-$HOME/projects/fanout-skill}"
+```
+
+If it is elsewhere, use its actual path (for example `F:/fanout` on Windows).
+macOS/Linux use Bash and the sibling `claude-profiles/ccp.bash` and
+`codex-profiles/cxp.bash`; Windows uses PowerShell and their `.ps1` files.
+Override nonstandard profile-tool locations with `CCP_BASH` / `CXP_BASH` on
+macOS/Linux, or `CCP_PS1` / `CXP_PS1` on Windows. Node.js 22+, the profile tools'
+dependencies, and `claude` / `codex` must be installed.
 
 ## Before you split the work
 
@@ -152,8 +167,8 @@ a worker fails because its tool rejects the model name, rerun that task without
 ## Running
 
 ```bash
-F:/fanout/fanout.sh <tasks.json> --dry-run   # which profile gets which task; runs nothing
-F:/fanout/fanout.sh <tasks.json>             # run; prints a status table and the results folder
+"$FANOUT_DIR/fanout.sh" tasks.json --dry-run   # which profile gets which task; runs nothing
+"$FANOUT_DIR/fanout.sh" tasks.json             # run; prints a status table and the results folder
 ```
 
 Redirect stdin from `/dev/null` when you call it from a tool, and allow a long
@@ -182,12 +197,19 @@ only if the user asked you to. Leftover worktrees can be removed with
 
 ## Managing the accounts
 
-`ccp` (Claude Code) and `cxp` (Codex) are the profile tools fanout builds on. From
-Git Bash, call them through PowerShell:
+`ccp` (Claude Code) and `cxp` (Codex) are the profile tools fanout builds on.
+On macOS/Linux:
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File F:/claude-profiles/ccp.ps1 usage
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File F:/codex-profiles/cxp.ps1 usage
+bash "${CCP_BASH:-$FANOUT_DIR/../claude-profiles/ccp.bash}" usage
+bash "${CXP_BASH:-$FANOUT_DIR/../codex-profiles/cxp.bash}" usage
+```
+
+On Windows from Git Bash, call them through PowerShell:
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${CCP_PS1:-$FANOUT_DIR/../claude-profiles/ccp.ps1}" usage
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${CXP_PS1:-$FANOUT_DIR/../codex-profiles/cxp.ps1}" usage
 ```
 
 `usage` shows how much of each account's limit is used, `pick -n 9` shows the order
